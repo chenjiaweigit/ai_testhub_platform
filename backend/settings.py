@@ -90,11 +90,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME', default='testhub'),
-        'USER': config('DB_USER', default='root'),
-        'PASSWORD': config('DB_PASSWORD', default=''),  # 移除硬编码默认密码
-        'HOST': config('DB_HOST', default='127.0.0.1'),
-        'PORT': config('DB_PORT', default='3306'),
+        'NAME': 'testhub',
+        'USER': 'root',
+        'PASSWORD': 'password',  # 移除硬编码默认密码
+        'HOST': '192.168.1.30',
+        'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -213,33 +213,9 @@ if DEBUG:
         "http://127.0.0.1:5173",
     ]
     CORS_ALLOW_CREDENTIALS = True
-    # 支持EventSource (SSE) 的额外CORS头部
-    CORS_ALLOW_HEADERS = [
-        'accept',
-        'accept-encoding',
-        'authorization',
-        'content-type',
-        'dnt',
-        'origin',
-        'user-agent',
-        'x-csrftoken',
-        'x-requested-with',
-    ]
 else:
     CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000',
                                   cast=lambda v: [s.strip() for s in v.split(',')])
-    CORS_ALLOW_CREDENTIALS = True
-    CORS_ALLOW_HEADERS = [
-        'accept',
-        'accept-encoding',
-        'authorization',
-        'content-type',
-        'dnt',
-        'origin',
-        'user-agent',
-        'x-csrftoken',
-        'x-requested-with',
-    ]
 
 # CSRF Settings
 CSRF_TRUSTED_ORIGINS = [
@@ -308,6 +284,11 @@ LOGGING = {
             'propagate': True,
         },
         'apps.api_testing.views': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'apps.requirement_analysis': {
             'handlers': ['file', 'console'],
             'level': 'INFO',
             'propagate': True,

@@ -169,8 +169,8 @@ class AIModelService:
             url = base_url
             
         try:
-            # Increase timeout to 120s for long generation tasks
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            # Increase timeout to 300s for long generation tasks
+            async with httpx.AsyncClient(timeout=300.0) as client:
                 response = await client.post(
                     url,
                     headers=headers,

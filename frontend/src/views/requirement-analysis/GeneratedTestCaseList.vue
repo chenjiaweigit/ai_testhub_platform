@@ -381,7 +381,7 @@
 
 <script>
 import api from '@/utils/api'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
 export default {
   name: 'GeneratedTestCaseList',
@@ -470,7 +470,7 @@ export default {
     async loadTasks() {
       this.isLoading = true
       try {
-        let url = '/requirement-analysis/testcase-generation/'
+        let url = '/requirement-analysis/api/testcase-generation/'
         const params = new URLSearchParams()
         
         // 添加分页参数
@@ -545,18 +545,7 @@ export default {
         return
       }
 
-      try {
-        await ElMessageBox.confirm(
-          `确定要删除选中的 ${this.selectedTasks.length} 个任务吗？此操作不可恢复。`,
-          '确认删除',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
-            confirmButtonClass: 'el-button--danger'
-          }
-        )
-      } catch {
+      if (!confirm(`确定要删除选中的 ${this.selectedTasks.length} 个任务吗？此操作不可恢复。`)) {
         return
       }
 
@@ -568,7 +557,7 @@ export default {
         // 逐个删除选中的任务
         for (const taskId of this.selectedTasks) {
           try {
-            await api.delete(`/requirement-analysis/testcase-generation/${taskId}/`)
+            await api.delete(`/requirement-analysis/api/testcase-generation/${taskId}/`)
             successCount++
           } catch (error) {
             console.error(`删除任务 ${taskId} 失败:`, error)
@@ -604,7 +593,7 @@ export default {
     async loadAllStats() {
       try {
         // 构建统计请求URL
-        let url = '/requirement-analysis/testcase-generation/'
+        let url = '/requirement-analysis/api/testcase-generation/'
         const params = new URLSearchParams()
         
         // 获取所有数据来进行统计
@@ -655,7 +644,13 @@ export default {
       }
 
       // 解析测试用例内容，计算条数
-      const content = task.final_test_cases
+      let content = task.final_test_cases
+      
+      // 移除Markdown代码块标记
+      content = content.replace(/```markdown\n?/g, '')
+      content = content.replace(/```\n?/g, '')
+      content = content.trim()
+      
       const lines = content.split('\n').filter(line => line.trim())
 
       // 尝试表格格式
@@ -670,9 +665,18 @@ export default {
             // 检查第一行是否是表头
             if (isFirstRow) {
               isFirstRow = false
-              // 如果第一行包含表头标识，标记为表格格式
-              if (line.includes('测试用例编号') || line.includes('ID') || line.includes('用例ID') ||
-                  line.includes('场景') || line.includes('步骤')) {
+              // 扩展表头识别范围
+              const headerKeywords = [
+                '测试用例编号', '用例ID', '用例编号', 'ID', '测试编号',
+                '测试场景', '场景', '测试目标', '目标',
+                '操作步骤', '步骤', '测试步骤',
+                '预期结果', '结果',
+                '优先级'
+              ]
+              
+              const hasHeaderKeyword = headerKeywords.some(keyword => line.includes(keyword))
+              
+              if (hasHeaderKeyword) {
                 isTableFormat = true
                 continue  // 跳过表头行
               }
@@ -692,8 +696,17 @@ export default {
 
       // 尝试结构化文本格式
       let caseCount = 0
+      const textPatterns = [
+        /测试用例\s*\d+/,
+        /Test Case\s*\d+/i,
+        /^\d+\.\s/,
+        /^测试场景/,
+        /^用例\d+/,
+        /^TC\d+/i
+      ]
+      
       for (const line of lines) {
-        if (line.includes('测试用例') || line.includes('Test Case') || line.match(/^(\d+\.|测试场景)/)) {
+        if (textPatterns.some(pattern => pattern.test(line))) {
           caseCount++
         }
       }
@@ -718,23 +731,14 @@ export default {
     },
 
     async batchAdoptTask(task) {
-      try {
-        await ElMessageBox.confirm(
-          `确定要一键采纳任务"${task.title}"的所有测试用例吗？`,
-          '确认采纳',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'success'
-          }
-        )
-      } catch {
+      if (!confirm(`确定要一键采纳任务"${task.title}"的所有测试用例吗？`)) {
         return
       }
-
+      
       try {
         // 调用后端API批量采纳该任务的所有测试用例
-        await api.post(`/requirement-analysis/testcase-generation/${task.task_id}/batch-adopt/`)
+        // await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch-adopt/`)
+        await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch_adopt/`)
         ElMessage.success('一键采纳成功！所有测试用例已导入到测试用例列表')
         this.loadTasks()
       } catch (error) {
@@ -744,24 +748,14 @@ export default {
     },
 
     async batchDiscardTask(task) {
-      try {
-        await ElMessageBox.confirm(
-          `确定要一键弃用任务"${task.title}"的所有测试用例吗？此操作不可恢复。`,
-          '确认弃用',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
-            confirmButtonClass: 'el-button--danger'
-          }
-        )
-      } catch {
+      if (!confirm(`确定要一键弃用任务"${task.title}"的所有测试用例吗？此操作不可恢复。`)) {
         return
       }
-
+      
       try {
         // 调用后端API批量删除该任务的所有测试用例
-        await api.post(`/requirement-analysis/testcase-generation/${task.task_id}/batch-discard/`)
+        // await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch-discard/`)
+        await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch_discard/`)
         ElMessage.success('一键弃用成功！该任务的所有测试用例已删除')
         this.loadTasks()
       } catch (error) {
@@ -865,61 +859,61 @@ export default {
     async confirmAdopt() {
       // 必填项验证
       if (!this.adoptForm.project_id) {
-        ElMessage.warning('请选择归属项目')
+        alert('请选择归属项目')
         return
       }
-
+      
       if (!this.adoptForm.version_id) {
-        ElMessage.warning('请选择关联版本')
+        alert('请选择关联版本')
         return
       }
-
+      
       if (!this.adoptForm.title.trim()) {
-        ElMessage.warning('请输入用例标题')
+        alert('请输入用例标题')
         return
       }
-
+      
       if (!this.adoptForm.expected_result.trim()) {
-        ElMessage.warning('请输入预期结果')
+        alert('请输入预期结果')
         return
       }
-
+      
       this.isAdopting = true
-
+      
       try {
         // 准备提交的数据，将单选版本转换为数组格式（如果API需要）
         const submitData = { ...this.adoptForm }
-
+        
         // 确保优先级有默认值
         if (!submitData.priority) {
           submitData.priority = 'low'
         }
-
+        
         if (submitData.version_id) {
           submitData.version_ids = [submitData.version_id]
         }
         delete submitData.version_id
-
+        
         // 调用API创建测试用例
         await api.post('/testcases/', submitData)
-
+        
         // 将AI生成的用例状态更新为"已采纳"
         try {
-          await api.patch(`/requirement-analysis/test-cases/${this.currentAdoptingTestCase.id}/`, {
+          await api.patch(`/requirement-analysis/api/test-cases/${this.currentAdoptingTestCase.id}/`, {
             status: 'adopted'
           })
         } catch (updateError) {
           console.warn('更新AI用例状态失败:', updateError)
           // 即使状态更新失败，用例已成功导入，仍然提示成功
         }
-
-        ElMessage.success('用例采纳成功！已导入到测试用例列表')
+        
+        alert('用例采纳成功！已导入到测试用例列表')
         this.closeAdoptModal()
         this.loadTestCases() // 重新加载列表
-
+        
       } catch (error) {
         console.error('采纳用例失败:', error)
-        ElMessage.error('采纳用例失败，请重试')
+        alert('采纳用例失败，请重试')
       } finally {
         this.isAdopting = false
       }
@@ -927,31 +921,20 @@ export default {
 
     // 弃用测试用例
     async discardTestCase(testCase) {
-      try {
-        await ElMessageBox.confirm(
-          `确定要弃用测试用例"${testCase.title}"吗？此操作不可恢复。`,
-          '确认弃用',
-          {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning',
-            confirmButtonClass: 'el-button--danger'
-          }
-        )
-      } catch {
+      if (!confirm(`确定要弃用测试用例"${testCase.title}"吗？此操作不可恢复。`)) {
         return
       }
-
+      
       try {
         // 将状态更新为"已弃用"
-        await api.patch(`/requirement-analysis/test-cases/${testCase.id}/`, {
+        await api.patch(`/requirement-analysis/api/test-cases/${testCase.id}/`, {
           status: 'discarded'
         })
-        ElMessage.success('用例已弃用')
+        alert('用例已弃用')
         this.loadTestCases() // 重新加载列表，已弃用的用例会被过滤掉
       } catch (error) {
         console.error('弃用用例失败:', error)
-        ElMessage.error('弃用用例失败，请重试')
+        alert('弃用用例失败，请重试')
       }
     },
 
@@ -988,7 +971,7 @@ export default {
         this.jumpPage = ''
         this.loadTasks()
       } else {
-        ElMessage.warning(`请输入 1-${this.totalPages} 之间的页码`)
+        alert(`请输入 1-${this.totalPages} 之间的页码`)
       }
     },
 
@@ -1039,8 +1022,10 @@ export default {
 <style scoped>
 .generated-testcase-list {
   padding: 20px;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -1188,6 +1173,7 @@ export default {
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 .loading-state, .empty-state {
@@ -1218,22 +1204,44 @@ export default {
 .testcases-table {
   border: 1px solid #ddd;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+}
+
+.testcases-table::-webkit-scrollbar {
+  height: 8px;
+}
+
+.testcases-table::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.testcases-table::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.testcases-table::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 .table-header {
   display: grid;
-  grid-template-columns: 50px 60px 180px 320px 100px 100px 180px 200px;
+  grid-template-columns: minmax(50px, 50px) minmax(60px, 60px) minmax(150px, 1fr) minmax(200px, 2fr) minmax(80px, 100px) minmax(80px, 100px) minmax(140px, 1fr) minmax(280px, auto);
   background: #f8f9fa;
   font-weight: bold;
   color: #2c3e50;
+  min-width: 1200px;
 }
 
 .table-body .table-row {
   display: grid;
-  grid-template-columns: 50px 60px 180px 320px 100px 100px 180px 200px;
+  grid-template-columns: minmax(50px, 50px) minmax(60px, 60px) minmax(150px, 1fr) minmax(200px, 2fr) minmax(80px, 100px) minmax(80px, 100px) minmax(140px, 1fr) minmax(280px, auto);
   border-bottom: 1px solid #eee;
   transition: background 0.2s ease;
+  min-width: 1200px;
 }
 
 .table-row:hover {
@@ -1353,10 +1361,12 @@ export default {
 
 .action-buttons {
   display: flex;
-  gap: 5px;
-  flex-wrap: nowrap;
+  gap: 4px;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
   margin: 0 auto;
+  max-width: 100%;
 }
 
 .count-badge {
@@ -1443,13 +1453,14 @@ export default {
   background: #3498db;
   color: white;
   border: none;
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   transition: background 0.3s ease;
-  margin-right: 3px;
+  margin: 0;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .view-detail-btn:hover {
@@ -1460,13 +1471,14 @@ export default {
   background: #27ae60;
   color: white;
   border: none;
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   transition: background 0.3s ease;
-  margin-right: 3px;
+  margin: 0;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .adopt-btn:hover {
@@ -1477,12 +1489,13 @@ export default {
   background: #e74c3c;
   color: white;
   border: none;
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   transition: background 0.3s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .discard-btn:hover {
@@ -1812,29 +1825,41 @@ export default {
 }
 
 /* 响应式设计 */
+@media (max-width: 1400px) {
+  .table-header,
+  .table-body .table-row {
+    grid-template-columns: 50px 60px minmax(140px, 1fr) minmax(200px, 2fr) minmax(80px, 100px) minmax(80px, 100px) minmax(150px, 1fr) minmax(300px, auto);
+    min-width: 1150px;
+  }
+}
+
 @media (max-width: 1200px) {
   .table-header,
   .table-body .table-row {
-    grid-template-columns: 150px 1fr 100px 140px 260px;
+    grid-template-columns: 50px 60px minmax(120px, 1fr) minmax(180px, 1.5fr) minmax(70px, 80px) minmax(70px, 80px) minmax(130px, 1fr) minmax(260px, auto);
+    min-width: 1100px;
   }
 
   .action-buttons {
     flex-direction: row;
-    gap: 2px;
+    gap: 3px;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .view-detail-btn,
   .adopt-btn,
   .discard-btn {
-    margin-right: 0;
-    font-size: 0.65rem;
-    padding: 2px 4px;
+    font-size: 0.7rem;
+    padding: 4px 6px;
   }
 }
 
 @media (max-width: 768px) {
+  .generated-testcase-list {
+    padding: 10px;
+  }
+
   .filter-card {
     flex-direction: column;
     align-items: stretch;
@@ -1847,50 +1872,52 @@ export default {
 
   .table-header,
   .table-body .table-row {
-    grid-template-columns: 120px 1fr 80px 120px 240px;
+    grid-template-columns: 40px 50px minmax(100px, 1fr) minmax(150px, 1.5fr) minmax(60px, 70px) minmax(60px, 70px) minmax(120px, 1fr) minmax(220px, auto);
+    min-width: 900px;
   }
-  
+
   .header-cell,
   .body-cell {
-    padding: 8px;
-    font-size: 0.8rem;
+    padding: 8px 6px;
+    font-size: 0.75rem;
   }
-  
+
   .action-buttons {
     flex-direction: column;
     gap: 2px;
     align-items: stretch;
   }
-  
+
   .view-detail-btn,
   .adopt-btn,
   .discard-btn {
-    font-size: 0.65rem;
-    padding: 2px 4px;
+    font-size: 0.7rem;
+    padding: 4px 6px;
+    width: 100%;
   }
-  
+
   .form-row {
     flex-direction: column;
     gap: 15px;
   }
-  
+
   .large-modal {
     max-width: 95%;
   }
-  
+
   .pagination-section {
     flex-direction: column;
     gap: 15px;
     align-items: flex-start;
   }
-  
+
   .pagination-controls {
     flex-direction: column;
     gap: 15px;
     align-items: flex-start;
     width: 100%;
   }
-  
+
   .pagination-buttons {
     justify-content: center;
     width: 100%;

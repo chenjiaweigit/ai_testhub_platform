@@ -161,10 +161,6 @@
     <el-dialog
         v-model="detailDialogVisible"
         title="通知详情"
-        :close-on-click-modal="false"
-        :close-on-press-escape="false"
-        :modal="true"
-        :destroy-on-close="false"
         width="600px"
         :before-close="handleDetailDialogClose"
     >
